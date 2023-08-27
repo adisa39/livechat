@@ -1,0 +1,160 @@
+<!-- chat/templates/chat/room.html -->
+{% load static %}
+<html>
+<head>
+
+    <!-- This tells the browser to use the UTF-8 character encoding when translating machine code into human-readable text. -->
+    <meta charset="UTF-8" />
+
+    <!-- This tells the browser how should it render this HTML document. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+    <!-- This meta tag allows web authors to choose what version of Internet Explorer the page should be rendered as. -->
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+
+    <!-- This is simply the title of this HTML document. You can enter whatever you want here. -->
+    <title>{% block title %}{% endblock %} Chat Room</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"/>
+
+    <!-- Google Fonts Roboto -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap"/>
+
+    <!-- MDB -->
+    <link rel="stylesheet" href="{% static 'css/mdb.min.css' %}" />
+    <link rel="stylesheet" href="{% static 'css/mystyle.css' %}" />
+</head>
+<body>
+    <main class="container">
+        <h3 class="fw-bold text-center mb-4">Chat Room</h3>
+        <div id="mcontainer" class="m-auto" style="max-width: 400px;">
+
+<!--            THIS BLOCK OF CODE IS FOR ORM INTEGRATION
+            <div>
+                <p><img style="height: 50px; width: 50px;" src="{{ conversation.product.image1.url }}"></p>
+            </div>
+
+                {% for message in conversation.messages.all %}-->
+<!--                <div class="w-75 p-6 mb-4 {% if message.created_by == request.user %} ms-auto{% else %} me-auto{% endif %}">-->
+<!--                    <p class="fw-bold">{% if message.created_by == request.user %} Me: {% else %} {{ message.created_by.username }}: {% endif %} </p>-->
+<!--                    -->
+<!--                    <div class="card p-2 bg-opacity-25 {% if message.created_by == request.user %}bg-info ms-auto{% else %}bg-secondary {% endif %}">-->
+<!--                        <p class="ms-2 ">{{ message.content }}</p>-->
+<!--                        <figcaption class="mb-1 text-muted text-end blockquote-footer">{{ message.created_at }}</figcaption>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            {% endfor %}-->
+            <div style="" class="pt-5">
+                <form method="post" action="{{.}}" class="d-flex fixed-bottom mt-5 mx-2 pt-5" >
+                    {% csrf_token %}
+                    
+                    <input id="chat-message-input" type="text" size="100" class="py-2 px-4 form-control rounded-5" placeholder="Messsage" required><br>
+                    <button id="chat-message-submit" class="btn btn-lg text-light" style="background-color: rgba(23, 30, 52, 0.99);">Send</button>
+                    
+                </form>
+            </div>
+        </div>
+        
+
+        {{ room_name|json_script:"room-name" }}
+        {{ request.user.username|json_script:"username" }}
+    </main>
+        <script>
+            const roomName = JSON.parse(document.getElementById('room-name').textContent);
+            const username = JSON.parse(document.getElementById('username').textContent);
+
+            const chatSocket = new WebSocket(
+                'ws://'
+                + window.location.host
+                + '/ws/chat/'
+                + roomName
+                + '/'
+            );
+
+            const myfunction = function(txt, user, date){
+                const chat_container = document.getElementById("mcontainer");
+
+                const inner_div = document.createElement("div");
+                if (user==username){inner_div.classList.add("w-75", "p-6", "mb-7", "ms-auto");} else {inner_div.classList.add("w-75", "p-6", "mb-7", "me-auto");}
+                chat_container.appendChild(inner_div);                 
+
+                const user_p = document.createElement("p");
+                user_p.classList.add("fw-bold");
+                if (user==username){user_p.textContent = "Me";} else {user_p.textContent = user;}                
+                inner_div.appendChild(user_p);
+                
+                const msg_div = document.createElement("div");
+                if (user==username){msg_div.classList.add("card", "p-2", "bg-opacity-25", "bg-info")} else {msg_div.classList.add("card", "p-2", "bg-opacity-25", "bg-secondary")}
+                
+
+                const rcv_msg_p = document.createElement("p");
+                rcv_msg_p.classList.add("ms-2");
+                rcv_msg_p.textContent = txt;
+                msg_div.appendChild(rcv_msg_p);              
+                inner_div.appendChild(msg_div);
+
+                const date_cap = document.createElement("figcaption");
+                date_cap.textContent = date;
+                date_cap.classList.add("mb-1", "text-muted", "text-end", "blockquote-footer")
+                msg_div.appendChild(date_cap)
+
+                  
+            };
+
+            let today = function(){
+                // Get the current date and time
+                const currentDate = new Date();
+
+                // Months array to convert month number to month name abbreviation
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                // Get the month, day, year, hours, minutes, and seconds
+                const month = months[currentDate.getMonth()];
+                const day = currentDate.getDate().toString().padStart(2, '0');
+                const year = currentDate.getFullYear().toString();
+                const hours = currentDate.getHours().toString().padStart(2, '0');
+                const minutes = currentDate.getMinutes().toString().padStart(2, '0');
+                const seconds = currentDate.getSeconds().toString().padStart(2, '0');
+
+                // Create the formatted date string
+                const formattedDate = `${month}-${day}-${year} ${hours}:${minutes}:${seconds}`;
+                return formattedDate
+
+            };
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                const msg_date = today()
+                myfunction(data.message, data.username, msg_date);                
+            };
+                
+            chatSocket.onclose = function(e) {
+                console.error('Chat socket closed unexpectedly');
+            };
+        
+
+            document.querySelector('#chat-message-input').focus();
+            document.querySelector('#chat-message-input').onkeyup = function(e) {
+                if (e.key === 'Enter') {  // enter, return
+                    document.querySelector('#chat-message-submit').click();
+                };
+            };
+
+            document.querySelector('#chat-message-submit').onclick = function(e) {
+                const messageInputDom = document.querySelector('#chat-message-input');
+                const message = messageInputDom.value;
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'username': username
+                }));
+                
+                messageInputDom.value = '';
+            };
+        </script>
+
+  <script type="text/javascript"></script>
+  <!-- MDB -->
+  <script type="text/javascript" src="{% static 'js/mdb.min.js' %}"></script>
+</body>
+</html>
